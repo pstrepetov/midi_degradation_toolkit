@@ -5,7 +5,7 @@ from functools import wraps
 
 import numpy as np
 import pandas as pd
-from numpy.random import choice, randint
+from numpy.random import choice, randint, uniform
 
 from mdtk.df_utils import NOTE_DF_SORT_ORDER
 
@@ -124,7 +124,6 @@ def pre_process(df, sort=False):
     if sort:
         df = df.sort_values(NOTE_DF_SORT_ORDER)
     df = df.reset_index(drop=True)
-    df = df.round().astype(int)
     return df
 
 
@@ -186,7 +185,7 @@ def split_range_sample(split_range, p=None):
         total_range = sum(range_sizes)
         p = [range_size / total_range for range_size in range_sizes]
     index = choice(range(len(split_range)), p=p)
-    samp = randint(split_range[index][0], split_range[index][1])
+    samp = uniform(split_range[index][0], split_range[index][1])
     return samp
 
 
@@ -461,18 +460,18 @@ def time_shift(
     """
     excerpt = pre_process(excerpt)
 
-    min_shift = max(min_shift, 1)
+    min_shift = max(min_shift, 0.001)
 
     onset = excerpt["onset"]
     offset = onset + excerpt["dur"]
     end_time = offset.max()
 
     # Shift earlier
-    earliest_earlier_onset = (onset - (max_shift - 1)).clip(lower=0)
-    latest_earlier_onset = onset - (min_shift - 1)
+    earliest_earlier_onset = (onset - (max_shift - 0.001)).clip(lower=0)
+    latest_earlier_onset = onset - (min_shift - 0.001)
 
     # Shift later
-    latest_later_onset = onset + (((end_time + 1) - offset).clip(upper=max_shift + 1))
+    latest_later_onset = onset + (((end_time + 0.001) - offset).clip(upper=max_shift + 0.001))
     earliest_later_onset = onset + min_shift
 
     if align_onset:
@@ -490,8 +489,8 @@ def time_shift(
             )
         ):
             # Go through each range to check there is a valid onset
-            earlier_valid = onset.between(eeo, leo - 1).any()
-            later_valid = onset.between(elo, llo - 1).any()
+            earlier_valid = onset.between(eeo, leo - 0.001).any()
+            later_valid = onset.between(elo, llo - 0.001).any()
 
             # Close invalid ranges
             if not earlier_valid:
@@ -518,7 +517,7 @@ def time_shift(
     llo = max(latest_later_onset[index], elo)
 
     if align_onset:
-        valid_onsets = onset.between(eeo, leo - 1) | onset.between(elo, llo - 1)
+        valid_onsets = onset.between(eeo, leo - 0.001) | onset.between(elo, llo - 0.001)
         valid_onsets = list(onset[valid_onsets])
         onset = choice(valid_onsets)
     else:
@@ -601,8 +600,8 @@ def onset_shift(
     """
     excerpt = pre_process(excerpt)
 
-    min_shift = max(min_shift, 1)
-    min_duration -= 1  # This makes computation below simpler
+    min_shift = max(min_shift, 0.001)
+    min_duration -= 0.001  # This makes computation below simpler
 
     onset = excerpt["onset"]
     offset = onset + excerpt["dur"]
@@ -612,12 +611,12 @@ def onset_shift(
     earliest_lengthened_onset = (
         (offset - max_duration).clip(lower=onset - max_shift).clip(lower=0)
     )
-    latest_lengthened_onset = (onset - (min_shift - 1)).clip(
+    latest_lengthened_onset = (onset - (min_shift - 0.001)).clip(
         upper=offset - min_duration
     )
 
     # Shorten bounds (increase onset)
-    latest_shortened_onset = (offset - min_duration).clip(upper=onset + (max_shift + 1))
+    latest_shortened_onset = (offset - min_duration).clip(upper=onset + (max_shift + 0.001))
     earliest_shortened_onset = (onset + min_shift).clip(lower=offset - max_duration)
 
     if align_onset:
@@ -635,8 +634,8 @@ def onset_shift(
             )
         ):
             # Go through each range to check there is a valid onset
-            earlier_valid = onset.between(elo, llo - 1)
-            later_valid = onset.between(eso, lso - 1)
+            earlier_valid = onset.between(elo, llo - 0.001)
+            later_valid = onset.between(eso, lso - 0.001)
 
             if align_dur:
                 # Here, align both onset and dur
@@ -672,8 +671,8 @@ def onset_shift(
         ):
             # Go through each range to check there is a valid dur
             result = offset[i] - durs
-            lengthened_valid = result.between(elo, llo - 1).any()
-            shortened_valid = result.between(eso, lso - 1).any()
+            lengthened_valid = result.between(elo, llo - 0.001).any()
+            shortened_valid = result.between(eso, lso - 0.001).any()
 
             # Close invalid ranges
             if not lengthened_valid:
@@ -701,7 +700,7 @@ def onset_shift(
 
     # Sample onset
     if align_onset:
-        valid_onsets = onset.between(elo, llo - 1) | onset.between(eso, lso - 1)
+        valid_onsets = onset.between(elo, llo - 0.001) | onset.between(eso, lso - 0.001)
 
         if align_dur:
             # Here, align both
@@ -714,7 +713,7 @@ def onset_shift(
     elif align_dur:
         # Align dur but not onset
         onsets = offset[index] - durs
-        valid_durs = onsets.between(elo, llo - 1) | onsets.between(eso, lso - 1)
+        valid_durs = onsets.between(elo, llo - 0.001) | onsets.between(eso, lso - 0.001)
         valid_durs = list(durs[valid_durs])
         onset = offset[index] - choice(valid_durs)
 
@@ -736,7 +735,7 @@ def onset_shift(
             excerpt,
             min_shift=min_shift,
             max_shift=max_shift,
-            min_duration=min_duration + 1,  # Changed above
+            min_duration=min_duration + 0.001,  # Changed above
             max_duration=max_duration,
             align_onset=align_onset,
             align_dur=align_dur,
@@ -800,8 +799,8 @@ def offset_shift(
     """
     excerpt = pre_process(excerpt)
 
-    min_shift = max(min_shift, 1)
-    max_duration += 1
+    min_shift = max(min_shift, 0.001)
+    max_duration += 0.001
 
     onset = excerpt["onset"]
     duration = excerpt["dur"]
@@ -810,14 +809,14 @@ def offset_shift(
     # Lengthen bounds (increase duration)
     shortest_lengthened_dur = (duration + min_shift).clip(lower=min_duration)
     longest_lengthened_dur = (
-        (duration + (max_shift + 1))
-        .clip(upper=(end_time + 1) - onset)
+        (duration + (max_shift + 0.001))
+        .clip(upper=(end_time + 0.001) - onset)
         .clip(upper=max_duration)
     )
 
     # Shorten bounds (decrease duration)
     shortest_shortened_dur = (duration - max_shift).clip(lower=min_duration)
-    longest_shortened_dur = (duration - (min_shift - 1)).clip(upper=max_duration)
+    longest_shortened_dur = (duration - (min_shift - 0.001)).clip(upper=max_duration)
 
     if align_dur:
         # Find ranges which contain a duration to align to
@@ -834,8 +833,8 @@ def offset_shift(
             )
         ):
             # Go through each range to check there is a valid duration
-            shortened_valid = durs.between(ssd, lsd - 1).any()
-            lengthened_valid = durs.between(sld, lld - 1).any()
+            shortened_valid = durs.between(ssd, lsd - 0.001).any()
+            lengthened_valid = durs.between(sld, lld - 0.001).any()
 
             # Close invalid ranges
             if not shortened_valid:
@@ -863,7 +862,7 @@ def offset_shift(
 
     # Sample new duration
     if align_dur:
-        valid_durs = durs.between(ssd, lsd - 1) | durs.between(sld, lld - 1)
+        valid_durs = durs.between(ssd, lsd - 0.001) | durs.between(sld, lld - 0.001)
         valid_durs = list(durs[valid_durs])
         duration = choice(valid_durs)
     else:
@@ -883,7 +882,7 @@ def offset_shift(
             min_shift=min_shift,
             max_shift=max_shift,
             min_duration=min_duration,
-            max_duration=max_duration - 1,  # Changed above
+            max_duration=max_duration - 0.001,  # Changed above
             align_dur=align_dur,
             tries=tries - 1,
         )
@@ -1090,10 +1089,10 @@ def add_note(
         duration = min_duration
     elif excerpt.shape[0] == 0:
         onset = 0
-        duration = randint(min_duration, min(max_duration + 1, sys.maxsize))
+        duration = uniform(min_duration, min(max_duration + 0.001, sys.maxsize))
     else:
-        onset = randint(excerpt["onset"].min(), end_time - min_duration)
-        duration = randint(min_duration, min(end_time - onset, max_duration + 1))
+        onset = uniform(excerpt["onset"].min(), end_time - min_duration)
+        duration = uniform(min_duration, min(end_time - onset, max_duration + 0.001))
 
     # Track is random one of existing tracks
     try:
@@ -1213,7 +1212,7 @@ def split_note(
     this_onset = excerpt.loc[note_index, "onset"]
     next_onset = this_onset + short_duration_float
 
-    # Add next notes (taking care to round correctly)
+    # Add next notes
     pitches = [pitch] * num_splits
     onsets = [0] * num_splits
     durs = [0] * num_splits
@@ -1223,11 +1222,11 @@ def split_note(
         this_onset = next_onset
         next_onset += short_duration_float
 
-        onsets[i] = int(round(this_onset))
-        durs[i] = int(round(next_onset)) - int(round(this_onset))
+        onsets[i] = this_onset
+        durs[i] = next_onset - this_onset
 
     degraded = excerpt.copy()
-    degraded.loc[note_index, "dur"] = int(round(short_duration_float))
+    degraded.loc[note_index, "dur"] = short_duration_float
     new_df = pd.DataFrame(
         {
             "onset": onsets,
@@ -1307,9 +1306,9 @@ def join_notes(
             # Get note gaps
             onset = pitch_df["onset"]
             offset = onset + pitch_df["dur"]
-            gap_after = onset.shift(-1) - offset
+            gap_after = onset.shift(-0.001) - offset
             gap_after.iloc[-1] = np.inf
-            gap_before = gap_after.shift(1)
+            gap_before = gap_after.shift(0.001)
             gap_before.iloc[0] = np.inf
 
             # Get valid notes to start joining from
